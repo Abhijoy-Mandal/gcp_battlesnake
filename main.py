@@ -14,6 +14,7 @@
 import random
 import typing
 import numpy
+
 # Ranking:
 # 1: Larger Snake
 # 2: Space
@@ -27,7 +28,7 @@ SAME_SNAKE_DANGER = 1
 SMALLER_SNAKE_REWARD = 0.5
 EDGE_KILL_WEIGHT = 2
 
-HP_THRESH = 30
+HP_THRESH = 25
 LENGTH_AIM = 4
 AREA_AIM = 20
 len_you = 0
@@ -81,7 +82,7 @@ def move(game_state: typing.Dict) -> typing.Dict:
     len_you = game_state['you']["length"]
     game_Width = game_state["board"]["width"]
     game_Height = game_state["board"]["height"]
-    print(len_you)
+    # print(len_you)
 
     map = [[0 for i in range(game_Width)] for j in range(game_Height)]
     length_map = [[0 for i in range(game_Width)] for j in range(game_Height)]
@@ -110,22 +111,24 @@ def move(game_state: typing.Dict) -> typing.Dict:
     # spaces = floodFill(map, game_Width, game_Height, my_head["x"], my_head["y"])
     # print(f'spaces: {spaces}')
     num_agents = len(game_state["board"]["snakes"])
-    if len_you>=5:
-      if num_agents>=3:
-        depth=2*num_agents
-      else:
-        depth=1*num_agents
-      spaces = space_minimax(game_state, depth, is_move_safe, map, num_agents)
-      print(f"min_max space: {spaces}")
-    # Future improvement one loop
-      max_space = max([space for _, space in spaces.items()])
-      largest = [move for move, space in spaces.items() if space == max_space]
-      for move in largest:
-          is_move_safe[move] += 1
+    if len_you >= 4:
+        if num_agents == 4:
+            depth = 1 * num_agents
+        elif num_agents == 3:
+            depth = 1 * num_agents
+        else:
+            depth = 2 * num_agents
+        is_move_safe = space_minimax(game_state, depth, is_move_safe, map, num_agents)
+        # print(f"min_max space: {is_move_safe}")
+        # Future improvement one loop
+        # max_space = max([space for _, space in spaces.items()])
+        # largest = [move for move, space in spaces.items() if space == max_space]
+        # for move in largest:
+        #     is_move_safe[move] += 1
     if should_find_food(game_state, my_opp):
         # find_food(game_state, is_move_safe, my_head, food, length_map)
         is_move_safe = find_food(game_state, is_move_safe, my_head, food, map)
-        print("find food")
+        # print("find food")
     is_move_safe = can_edge_kill(game_state, is_move_safe)
     is_move_safe = score(game_state, my_head, is_move_safe, map, length_map)
     print(f'scores: {is_move_safe}')
@@ -278,8 +281,8 @@ def BFS(src, map, dist_map):
         u = queue.pop(0);
         dirs = [[0, 1], [0, -1], [-1, 0], [1, 0]]
         for dir in dirs:
-            curr_x = u[0]+dir[0]
-            curr_y = u[1]+dir[1]
+            curr_x = u[0] + dir[0]
+            curr_y = u[1] + dir[1]
             if (curr_x < 0 or curr_y < 0 or curr_x >= width or curr_y >= height): continue
             if map[curr_x][curr_y] == 0:
                 map[curr_x][curr_y] = 2
@@ -448,14 +451,16 @@ def score(game_state, head, moves, map, length_map):
                 offsets = [[0, 1], [0, -1], [1, 0]]
             np_lengthmap = numpy.asarray(length_map)
             # print(np_lengthmap[:, 1])
-            if x == 0 and numpy.any(np_lengthmap[1, max(y-2, 0):min(y+2, 11)]):
+            if x == 0 and numpy.any(np_lengthmap[1, max(y - 2, 0):min(y + 2, 11)]):
                 moves[move] -= 1
-            if x == game_state["board"]["width"] - 1 and numpy.any(np_lengthmap[game_state["board"]["width"] - 2, max(y-2, 0):min(y+2, 11)]):
+            if x == game_state["board"]["width"] - 1 and numpy.any(
+                    np_lengthmap[game_state["board"]["width"] - 2, max(y - 2, 0):min(y + 2, 11)]):
                 moves[move] -= 1
             # a = [1, 2, 3]   a[:]   a[:]  a[1]
-            if y == 0 and numpy.any(np_lengthmap[max(0, x-2):min(x+2, 11), 1]):  # [0, 1, 1, 0] or [[0], [1], ]
+            if y == 0 and numpy.any(np_lengthmap[max(0, x - 2):min(x + 2, 11), 1]):  # [0, 1, 1, 0] or [[0], [1], ]
                 moves[move] -= 1
-            if y == game_state["board"]["height"] - 1 and numpy.any(np_lengthmap[max(x-2, 0):min(x+2, 11), game_state["board"]["height"] - 2]):
+            if y == game_state["board"]["height"] - 1 and numpy.any(
+                    np_lengthmap[max(x - 2, 0):min(x + 2, 11), game_state["board"]["height"] - 2]):
                 moves[move] -= 1
 
             # if (x == 0 or x == game_state["board"]["width"]-1 or y == 0 or y == game_state["board"]["height"]-1):
@@ -501,117 +506,133 @@ def area(game_state, body):
 
     return area
 
-def heuristic(game_state, bodies, map):
-  height = game_state["board"]["height"]
-  width = game_state["board"]["width"]
-  x = bodies[0][0][0]
-  y = bodies[0][0][1]
-  
-  spaces = floodFill(map, width, height, x, y)
-  max_space = max([space for move, space in spaces.items()])
-  # curr_area = area(game_state, bodies[0])
-  # mid_conc = max_mid(bodies[0])
-  return max_space/121.0
 
-def minimax(game_state, depth, map, num_agents, bodies):
-  height = game_state["board"]["height"]
-  width = game_state["board"]["width"]
-  if depth==0:
-    cpy_map = [row[:] for row in map]
-    return heuristic(game_state, bodies, cpy_map)
-  elif depth%num_agents==0:
-    value = float("-inf")
+def heuristic(game_state, bodies, map):
+    height = game_state["board"]["height"]
+    width = game_state["board"]["width"]
     x = bodies[0][0][0]
     y = bodies[0][0][1]
-    dirs = {"up": [0, 1], "down": [0, -1], "left": [-1, 0], "right": [1, 0]}
-    move_lst = ["up", "down", "left", "right"]
-    for move in move_lst:
-        d = dirs[move]
-        curr_x = x + d[0]
-        curr_y = y + d[1]
-        if (curr_x < 0 or curr_y < 0 or curr_x >= width or curr_y >= height): 
-          score_val=0.0
-        elif map[curr_x][curr_y]!=0:
-          score_val=0.0
-        else:
-          cpy_map = [row[:] for row in map]
-          cpy_map[curr_x][curr_y] = 1
-          cpy_map[bodies[0][-1][0]][bodies[0][-1][1]] = 0
-          cpy_bodies = [[idx[:] for idx in itm] for itm in bodies]
-          cpy_bodies[0] = [[curr_x, curr_y]] + cpy_bodies[0]
-          cpy_bodies[0].pop(-1)
-          score_val = minimax(game_state, depth-1, cpy_map, num_agents, cpy_bodies)
-        value = max(value, score_val)
-    return value
-  else:
-    value = float("inf")
-    x = bodies[depth%num_agents][0][0]
-    y = bodies[depth%num_agents][0][1]
-    dirs = {"up": [0, 1], "down": [0, -1], "left": [-1, 0], "right": [1, 0]}
-    move_lst = ["up", "down", "left", "right"]
-    for move in move_lst:
-        d = dirs[move]
-        curr_x = x + d[0]
-        curr_y = y + d[1]
-        if (curr_x < 0 or curr_y < 0 or curr_x >= width or curr_y >= height): 
-          score_val=float('inf')
-        elif map[curr_x][curr_y]!=0:
-          score_val=float('inf')
-        else:
-          cpy_map = [row[:] for row in map]
-          cpy_map[curr_x][curr_y] = 1
-          cpy_map[bodies[depth%num_agents][-1][0]][bodies[depth%num_agents][-1][1]] = 0
-          cpy_bodies = [[idx[:] for idx in itm] for itm in bodies]
-          cpy_bodies[depth%num_agents] = [[curr_x, curr_y]]+cpy_bodies[depth%num_agents]
-          cpy_bodies[depth%num_agents].pop(-1)
-          score_val = minimax(game_state, depth-1, cpy_map, num_agents, cpy_bodies)
-        value = min(value, score_val)
-    if value<float('inf'):
-      return value
-    return minimax(game_state, depth-1, map, num_agents, bodies)
+
+    spaces = floodFill(map, width, height, x, y)
+    max_space = max([space for move, space in spaces.items()])
+    # curr_area = area(game_state, bodies[0])
+    # mid_conc = max_mid(bodies[0])
+    return 1.5*max_space / 121.0
+
+
+def minimax(game_state, depth, map, num_agents, bodies, alpha, beta):
+    height = game_state["board"]["height"]
+    width = game_state["board"]["width"]
+    if depth == 0:
+        cpy_map = [row[:] for row in map]
+        return heuristic(game_state, bodies, cpy_map)
+    elif depth % num_agents == 0:
+        value = float("-inf")
+        x = bodies[0][0][0]
+        y = bodies[0][0][1]
+        dirs = {"up": [0, 1], "down": [0, -1], "left": [-1, 0], "right": [1, 0]}
+        move_lst = ["up", "down", "left", "right"]
+        for move in move_lst:
+            d = dirs[move]
+            curr_x = x + d[0]
+            curr_y = y + d[1]
+            if (curr_x < 0 or curr_y < 0 or curr_x >= width or curr_y >= height):
+                score_val = 0.0
+            elif map[curr_x][curr_y] != 0:
+                score_val = 0.0
+            else:
+                cpy_map = [row[:] for row in map]
+                cpy_map[curr_x][curr_y] = 1
+                cpy_map[bodies[0][-1][0]][bodies[0][-1][1]] = 0
+                cpy_bodies = [[idx[:] for idx in itm] for itm in bodies]
+                cpy_bodies[0] = [[curr_x, curr_y]] + cpy_bodies[0]
+                cpy_bodies[0].pop(-1)
+                score_val = minimax(game_state, depth - 1, cpy_map, num_agents, cpy_bodies, alpha, beta)
+            value = max(value, score_val)
+            alpha = max(alpha, value)
+            if beta <= alpha:
+                break
+        return value
+    else:
+        value = float("inf")
+        x = bodies[depth % num_agents][0][0]
+        y = bodies[depth % num_agents][0][1]
+        dirs = {"up": [0, 1], "down": [0, -1], "left": [-1, 0], "right": [1, 0]}
+        move_lst = ["up", "down", "left", "right"]
+        for move in move_lst:
+            d = dirs[move]
+            curr_x = x + d[0]
+            curr_y = y + d[1]
+            if (curr_x < 0 or curr_y < 0 or curr_x >= width or curr_y >= height):
+                score_val = float('inf')
+            elif map[curr_x][curr_y] != 0:
+                score_val = float('inf')
+            else:
+                cpy_map = [row[:] for row in map]
+                cpy_map[curr_x][curr_y] = 1
+                cpy_map[bodies[depth % num_agents][-1][0]][bodies[depth % num_agents][-1][1]] = 0
+                cpy_bodies = [[idx[:] for idx in itm] for itm in bodies]
+                cpy_bodies[depth % num_agents] = [[curr_x, curr_y]] + cpy_bodies[depth % num_agents]
+                cpy_bodies[depth % num_agents].pop(-1)
+                score_val = minimax(game_state, depth - 1, cpy_map, num_agents, cpy_bodies, alpha, beta)
+            value = min(value, score_val)
+            beta = min(beta, value)
+            if beta <= alpha:
+                break
+        if value < float('inf'):
+            return value
+        return minimax(game_state, depth - 1, map, num_agents, bodies, alpha, beta)
 
 
 def space_minimax(game_state, depth, moves, map, num_agents):
-  height = game_state["board"]["height"]
-  width = game_state["board"]["width"]
-  dirs = {"up": [0, 1], "down": [0, -1], "left": [-1, 0], "right": [1, 0]}
-  bodies = get_bodies(game_state)
-  x = bodies[0][0][0]
-  y = bodies[0][0][1]
-  for move, score in moves.items():
-    if score>MIN_SCORE:
-      d = dirs[move]
-      curr_x = x + d[0]
-      curr_y = y + d[1]
-      if (curr_x < 0 or curr_y < 0 or curr_x >= width or curr_y >= height): 
-        continue
-      if map[curr_x][curr_y]!=0:
-        continue
-      cpy_map = [row[:] for row in map]
-      cpy_map[curr_x][curr_y] = 1
-      cpy_map[bodies[0][-1][0]][bodies[0][-1][1]] = 0
-      cpy_bodies = [[idx[:] for idx in itm] for itm in bodies]
-      cpy_bodies[0] = [[curr_x, curr_y]] + cpy_bodies[0]
-      cpy_bodies[0].pop(-1)
-      score_val = minimax(game_state, depth-1, cpy_map, num_agents, cpy_bodies)
-      moves[move]+=score_val
-  return moves
-      
+    height = game_state["board"]["height"]
+    width = game_state["board"]["width"]
+    dirs = {"up": [0, 1], "down": [0, -1], "left": [-1, 0], "right": [1, 0]}
+    bodies = get_bodies(game_state)
+    x = bodies[0][0][0]
+    y = bodies[0][0][1]
+    ret_scores = {}
+    for move, score in moves.items():
+      ret_scores[move]=score
+    for move, score in moves.items():
+        if score > MIN_SCORE:
+            d = dirs[move]
+            curr_x = x + d[0]
+            curr_y = y + d[1]
+            if (curr_x < 0 or curr_y < 0 or curr_x >= width or curr_y >= height):
+                continue
+            if map[curr_x][curr_y] != 0:
+                continue
+            cpy_map = [row[:] for row in map]
+            cpy_map[curr_x][curr_y] = 1
+            cpy_map[bodies[0][-1][0]][bodies[0][-1][1]] = 0
+            cpy_bodies = [[idx[:] for idx in itm] for itm in bodies]
+            cpy_bodies[0] = [[curr_x, curr_y]] + cpy_bodies[0]
+            cpy_bodies[0].pop(-1)
+            score_val = minimax(game_state, depth - 1, cpy_map, num_agents, cpy_bodies, float('-inf'), float('inf'))
+            if score_val==0.0:
+              score_val=float('-inf')
+            ret_scores[move] += score_val
+    return ret_scores
+
+
 def get_bodies(game_state):
-  self_body = [[seg['x'],seg['y']] for seg in game_state["you"]["body"]]
-  ret_bodies = [self_body]
-  for snake in game_state["board"]["snakes"]:
-    if snake["id"]!=game_state["you"]["id"]:
-      opp_body = [[seg['x'],seg['y']] for seg in snake["body"]]
-      ret_bodies.append(opp_body)
-  return ret_bodies
+    self_body = [[seg['x'], seg['y']] for seg in game_state["you"]["body"]]
+    ret_bodies = [self_body]
+    for snake in game_state["board"]["snakes"]:
+        if snake["id"] != game_state["you"]["id"]:
+            opp_body = [[seg['x'], seg['y']] for seg in snake["body"]]
+            ret_bodies.append(opp_body)
+    return ret_bodies
+
 
 def max_mid(body):
-  sum=0
-  for seg in body:
-    sum+=(abs(seg[0]-6)+abs(seg[1]-6))
-  sum/=2.0*len(body)
-  return sum
+    sum = 0
+    for seg in body:
+        sum += (abs(seg[0] - 6) + abs(seg[1] - 6))
+    sum /= 2.0 * len(body)
+    return sum
+
 
 if __name__ == "__main__":
     from server import run_server
